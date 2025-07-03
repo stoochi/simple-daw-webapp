@@ -692,6 +692,14 @@
     let playBeat = 0;
     let playTimeout = null;
 
+    // --- FIX: Define NUM_ROWS dynamically ---
+    function getNumRows() {
+      return DRUMS.length;
+    }
+    Object.defineProperty(window, 'NUM_ROWS', {
+      get: getNumRows
+    });
+
     function updateNumBeats(newBars) {
       bars = newBars;
       NUM_BEATS = 4 * bars;
