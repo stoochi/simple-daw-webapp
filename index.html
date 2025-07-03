@@ -1,0 +1,1334 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Minimal Drum Step Sequencer</title>
+  <style id="theme-style">
+  </style>
+</head>
+<body>
+  <!-- Guide Button -->
+  <button id="guide-btn" title="Show Guide" style="position:fixed;top:18px;right:24px;z-index:100;background:#222;color:#ffe600;border:none;border-radius:50%;width:38px;height:38px;display:flex;align-items:center;justify-content:center;font-size:22px;box-shadow:0 2px 8px #0003;cursor:pointer;transition:background 0.15s;">
+    <span class="material-symbols-rounded" style="font-size:22px;">help</span>
+  </button>
+  <div id="guide-modal" style="display:none;position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(0,0,0,0.45);z-index:200;align-items:center;justify-content:center;">
+    <div style="background:#fff;color:#222;max-width:420px;width:90vw;padding:32px 28px 24px 28px;border-radius:16px;box-shadow:0 4px 32px #0005;position:relative;">
+      <button id="close-guide-btn" style="position:absolute;top:12px;right:12px;background:none;border:none;font-size:22px;color:#888;cursor:pointer;"><span class="material-symbols-rounded">close</span></button>
+      <h3 style="margin-top:0;margin-bottom:16px;font-size:1.3em;color:#1976d2;text-align:center;">How to Use the Drum Sequencer</h3>
+      <ul style="font-size:1em;line-height:1.7;margin:0 0 10px 0;padding-left:18px;">
+        <li><b>Mute/Solo</b>: Use the <span class="material-symbols-rounded" style="font-size:1em;vertical-align:middle;">volume_off</span> (Mute) and <span class="material-symbols-rounded" style="font-size:1em;vertical-align:middle;">hearing</span> (Solo) buttons next to each drum to mute or solo that drum row.</li>
+        <li><b>Add/Remove Drum Rows</b>: Use the <span class="material-symbols-rounded" style="font-size:1em;vertical-align:middle;">add_circle</span> button below the grid to add a new drum row (up to 8). Click the <span class="material-symbols-rounded" style="font-size:1em;vertical-align:middle;color:#f44;">delete</span> button next to a custom row to remove it.</li>
+        <li><b>Pattern Copy/Paste</b>: Right-click the grid to copy the current pattern to your clipboard, or paste a pattern from your clipboard (JSON format).</li>
+        <li><b>Play/Stop</b>: Use the <b>Play</b> (<span class="material-symbols-rounded" style="font-size:1em;vertical-align:middle;">play_arrow</span>) and <b>Stop</b> (<span class="material-symbols-rounded" style="font-size:1em;vertical-align:middle;">stop</span>) buttons to start/stop playback. You can also use the <b>Spacebar</b> to play/stop.</li>
+        <li><b>Clear</b>: The <span class="material-symbols-rounded" style="font-size:1em;vertical-align:middle;">delete</span> button clears the current pattern.</li>
+        <li><b>Pattern Length</b>: Select the number of bars (1, 2, or 4) at the top left.</li>
+        <li><b>BPM</b>: Set the tempo (40-300 BPM) at the top.</li>
+        <li><b>Grid</b>: Click cells to toggle drum hits. Each row is a drum (Kick, Snare, Hat, Clap, or your custom rows).</li>
+        <li><b>Audition</b>: Use the <b>Play</b> button next to each drum to preview its sound.</li>
+        <li><b>Custom Samples</b>: Drag and drop your own audio files onto a drum label to use custom sounds.</li>
+        <li><b>Theme Selector</b>: Change the color theme and background using the boxes at the top center.</li>
+        <li><b>Video Themes</b>: Some themes have a video background and a volume slider for the video audio.</li>
+        <li><b>Export</b>:
+          <ul style="margin:0 0 0 12px;padding-left:12px;">
+            <li><span class="material-symbols-rounded" style="font-size:1em;vertical-align:middle;">audio_file</span> Export as WAV audio file</li>
+            <li><span class="material-symbols-rounded" style="font-size:1em;vertical-align:middle;">music_note</span> Export as MIDI file</li>
+          </ul>
+        </li>
+        <li><b>Save/Load</b>:
+          <ul style="margin:0 0 0 12px;padding-left:12px;">
+            <li><span class="material-symbols-rounded" style="font-size:1em;vertical-align:middle;">save</span> Save pattern as JSON</li>
+            <li><span class="material-symbols-rounded" style="font-size:1em;vertical-align:middle;">upload_file</span> Load pattern from JSON</li>
+          </ul>
+        </li>
+      </ul>
+      <div style="font-size:0.98em;color:#555;margin-top:10px;text-align:center;">Tip: Try different themes for unique backgrounds and color schemes!</div>
+    </div>
+  </div>
+  <div class="container">
+    <h2>Minimal Drum Step Sequencer</h2>
+    <div id="status"></div>
+    <div id="sequencer-grid"></div>
+    <div style="display:flex;justify-content:center;align-items:center;margin-bottom:16px;gap:32px;">
+      <div>
+        <label for="bar-count" style="margin-right:8px;">Bars:</label>
+        <select id="bar-count" style="font-size:16px;padding:4px 12px;border-radius:6px;border:none;background:#333;color:#fff;">
+          <option value="1">1</option>
+          <option value="2">2</option>
+          <option value="4">4</option>
+        </select>
+      </div>
+      <div>
+        <label for="bpm-input" style="margin-right:8px;">BPM:</label>
+        <input id="bpm-input" type="number" min="40" max="300" value="120" style="width:64px;font-size:16px;padding:4px 8px;border-radius:6px;border:none;background:#333;color:#fff;text-align:center;">
+      </div>
+    </div>
+    <div style="text-align:center;margin-top:24px;">
+      <div class="button-row">
+        <button id="play-btn" title="Play/Stop (Space)" class="main-btn"><span class="material-symbols-rounded">play_arrow</span></button>
+        <button id="stop-btn" title="Stop" class="main-btn"><span class="material-symbols-rounded">stop</span></button>
+        <button id="clear-btn" title="Clear Pattern" class="main-btn"><span class="material-symbols-rounded">delete</span></button>
+      </div>
+      <div class="button-row">
+        <button id="export-btn" title="Export as WAV" class="util-btn"><span class="material-symbols-rounded">audio_file</span></button>
+        <button id="export-midi-btn" title="Export as MIDI" class="util-btn"><span class="material-symbols-rounded">music_note</span></button>
+        <button id="save-pattern-btn" title="Save Pattern" class="util-btn"><span class="material-symbols-rounded">save</span></button>
+        <button id="load-pattern-btn" title="Load Pattern" class="util-btn"><span class="material-symbols-rounded">upload_file</span></button>
+        <input type="file" id="pattern-file-input" accept=".json" style="display:none;">
+      </div>
+      <div class="button-row" style="margin-top:18px;">
+      <button id="add-row-btn" class="util-btn" title="Add Drum Row" style="font-size:22px;padding:8px 18px;border-radius:8px;min-width:54px;display:inline-flex;align-items:center;justify-content:center;"><span class="material-symbols-rounded" style="font-size:28px;vertical-align:middle;">add_circle</span></button>
+      </div>
+    </div>
+  </div>
+  <div id="theme-selector" style="position: absolute; left: 50%; transform: translateX(-50%); margin-top: 32px; z-index: 10; display: flex; gap: 12px; justify-content: center;"></div>
+  <script>
+    // Guide modal logic
+    const guideBtn = document.getElementById('guide-btn');
+    const guideModal = document.getElementById('guide-modal');
+    const closeGuideBtn = document.getElementById('close-guide-btn');
+    if (guideBtn && guideModal && closeGuideBtn) {
+      guideBtn.onclick = () => { guideModal.style.display = 'flex'; };
+      closeGuideBtn.onclick = () => { guideModal.style.display = 'none'; };
+      guideModal.onclick = (e) => { if (e.target === guideModal) guideModal.style.display = 'none'; };
+    }
+    // --- Material Icons ---
+    const iconFont = document.createElement('link');
+    iconFont.rel = 'stylesheet';
+    iconFont.href = 'https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded';
+    document.head.appendChild(iconFont);
+
+    // --- Theme definitions ---
+    const THEMES = {
+      'Terraria Summoner': {
+        bodyBg: '#0a1a3c', bodyColor: '#ffe600',
+        containerBg: 'rgba(10,26,60,0.92)',
+        accent: '#ffe600', accent2: '#fff200',
+        gridBg: '#193a6e', gridBorder: '#ffe600',
+        gridActive: '#ffe600', gridActiveBorder: '#ffe600',
+        buttonBg: '#193a6e', buttonColor: '#ffe600', buttonBorder: '#ffe600',
+        buttonHoverBg: '#ffe600', buttonHoverColor: '#193a6e', buttonHoverBorder: '#fff',
+        selectBg: '#193a6e', selectColor: '#ffe600', selectBorder: '#ffe600',
+        labelColor: '#ffe600',
+        codeBg: '#193a6e', codeColor: '#ffe600',
+      },
+      'Black And Red': {
+        bodyBg: '#111', bodyColor: '#f44',
+        containerBg: '#181818',
+        accent: '#f44', accent2: '#ff3333',
+        gridBg: '#222', gridBorder: '#333',
+        gridActive: '#f44', gridActiveBorder: '#f44',
+        buttonBg: '#222', buttonColor: '#f44', buttonBorder: '#f44',
+        buttonHoverBg: '#f44', buttonHoverColor: '#fff', buttonHoverBorder: '#fff',
+        selectBg: '#222', selectColor: '#f44', selectBorder: '#f44',
+        labelColor: '#f44',
+        codeBg: '#222', codeColor: '#fff',
+      },
+      'White and Blue': {
+        bodyBg: '#f8faff', bodyColor: '#1a237e',
+        containerBg: '#fff',
+        accent: '#1976d2', accent2: '#1976d2',
+        gridBg: '#e3eafc', gridBorder: '#b6c6e3',
+        gridActive: '#1976d2', gridActiveBorder: '#1976d2',
+        buttonBg: '#e3eafc', buttonColor: '#1976d2', buttonBorder: '#1976d2',
+        buttonHoverBg: '#1976d2', buttonHoverColor: '#fff', buttonHoverBorder: '#fff',
+        selectBg: '#e3eafc', selectColor: '#1976d2', selectBorder: '#1976d2',
+        labelColor: '#1976d2',
+        codeBg: '#e3eafc', codeColor: '#1a237e',
+      },
+      'Purple and Yellow': {
+        bodyBg: '#2d0036', bodyColor: '#ffe600',
+        containerBg: '#3a0052',
+        accent: '#ffe600', accent2: '#fff200',
+        gridBg: '#4a006e', gridBorder: '#ffe600',
+        gridActive: '#ffe600', gridActiveBorder: '#ffe600',
+        buttonBg: '#4a006e', buttonColor: '#ffe600', buttonBorder: '#ffe600',
+        buttonHoverBg: '#ffe600', buttonHoverColor: '#4a006e', buttonHoverBorder: '#fff',
+        selectBg: '#4a006e', selectColor: '#ffe600', selectBorder: '#ffe600',
+        labelColor: '#ffe600',
+        codeBg: '#4a006e', codeColor: '#ffe600',
+      },
+      'Regal Blue and Light Coral': {
+        bodyBg: '#1a2238', bodyColor: '#ff7f7f',
+        containerBg: '#263159',
+        accent: '#ff7f7f', accent2: '#ffbaba',
+        gridBg: '#30447e', gridBorder: '#ffbaba',
+        gridActive: '#ff7f7f', gridActiveBorder: '#ff7f7f',
+        buttonBg: '#30447e', buttonColor: '#ff7f7f', buttonBorder: '#ff7f7f',
+        buttonHoverBg: '#ff7f7f', buttonHoverColor: '#263159', buttonHoverBorder: '#fff',
+        selectBg: '#30447e', selectColor: '#ff7f7f', selectBorder: '#ff7f7f',
+        labelColor: '#ff7f7f',
+        codeBg: '#30447e', codeColor: '#ff7f7f',
+      },
+      'cartiiiiiii': {
+        bodyBg: '#fff', bodyColor: '#222',
+        containerBg: 'rgba(255,255,255,0.92)',
+        accent: '#1976d2', accent2: '#1976d2',
+        gridBg: '#f3f3f3', gridBorder: '#b6c6e3',
+        gridActive: '#1976d2', gridActiveBorder: '#1976d2',
+        buttonBg: '#f3f3f3', buttonColor: '#1976d2', buttonBorder: '#1976d2',
+        buttonHoverBg: '#1976d2', buttonHoverColor: '#fff', buttonHoverBorder: '#fff',
+        selectBg: '#f3f3f3', selectColor: '#1976d2', selectBorder: '#1976d2',
+        labelColor: '#1976d2',
+        codeBg: '#f3f3f3', codeColor: '#1976d2',
+      },
+      'BIRTHDAY': {
+        bodyBg: '#fff0f7', bodyColor: '#ff3cac',
+        containerBg: 'rgba(255, 255, 240, 0.96)',
+        accent: '#ff3cac', accent2: '#ffe53b',
+        gridBg: '#ffe0fa', gridBorder: '#ffb6e6',
+        gridActive: '#ffe53b', gridActiveBorder: '#ff3cac',
+        buttonBg: '#fff0f7', buttonColor: '#ff3cac', buttonBorder: '#ff3cac',
+        buttonHoverBg: '#ff3cac', buttonHoverColor: '#fff', buttonHoverBorder: '#ffe53b',
+        selectBg: '#ffe0fa', selectColor: '#ff3cac', selectBorder: '#ff3cac',
+        labelColor: '#ff3cac',
+        codeBg: '#ffe0fa', codeColor: '#ff3cac',
+      },
+    };
+
+    function setTheme(themeName) {
+      const t = THEMES[themeName];
+      if (!t) return;
+      // Remove any existing video background and stop all video playback
+      const oldBgVidWrap = document.getElementById('bg-video-wrap');
+      if (oldBgVidWrap) {
+        // Pause and remove all videos
+        const vids = oldBgVidWrap.querySelectorAll('video');
+        vids.forEach(v => { v.pause(); v.src = ''; v.load(); });
+        oldBgVidWrap.remove();
+      }
+      // Remove volume slider if present
+      let volSlider = document.getElementById('video-volume-slider-wrap');
+      if (volSlider) volSlider.remove();
+      // Always update theme selector after theme change
+      setTimeout(renderThemeSelector, 0);
+      if (themeName === 'cartiiiiiii' || themeName === 'Terraria Summoner' || themeName === 'BIRTHDAY') {
+        // Pick video file and accent color for this theme
+        let videoFile = 'cartivid.mp4';
+        let mainColor = '#1976d2';
+        let volBg = 'rgba(255,255,255,0.92)';
+        if (themeName === 'Terraria Summoner') {
+          videoFile = 'terrariasummoner.mp4';
+          mainColor = '#ffe600';
+          volBg = '#193a6e';
+        }
+        if (themeName === 'BIRTHDAY') {
+          videoFile = 'cartibirthday.mp4';
+          mainColor = '#ff3cac';
+          volBg = 'rgba(255,255,240,0.96)';
+        }
+        // Add tiled full-quality video background (3x3 grid, only one with audio)
+        const bgVidWrap = document.createElement('div');
+        bgVidWrap.id = 'bg-video-wrap';
+        bgVidWrap.style.position = 'fixed';
+        bgVidWrap.style.top = '0';
+        bgVidWrap.style.left = '0';
+        bgVidWrap.style.width = '100vw';
+        bgVidWrap.style.height = '100vh';
+        bgVidWrap.style.zIndex = '0';
+        bgVidWrap.style.overflow = 'hidden';
+        bgVidWrap.style.pointerEvents = 'none';
+        // 3x3 grid of videos, sync all to main video
+        const rows = 3, cols = 3;
+        const tileW = 100 / cols, tileH = 100 / rows;
+        let mainVid = null;
+        let allVids = [];
+        for (let r = 0; r < rows; r++) {
+          for (let c = 0; c < cols; c++) {
+            const vid = document.createElement('video');
+            vid.src = videoFile;
+            vid.autoplay = true;
+            vid.loop = true;
+            vid.playsInline = true;
+            vid.style.position = 'absolute';
+            vid.style.left = (c * tileW) + 'vw';
+            vid.style.top = (r * tileH) + 'vh';
+            vid.style.width = tileW + 'vw';
+            vid.style.height = tileH + 'vh';
+            vid.style.objectFit = 'cover';
+            vid.style.opacity = '1';
+            vid.style.border = 'none';
+            if (r === 1 && c === 1) {
+              vid.muted = false;
+              vid.id = 'main-bg-video';
+              mainVid = vid;
+            } else {
+              vid.muted = true;
+            }
+            allVids.push(vid);
+            bgVidWrap.appendChild(vid);
+          }
+        }
+        document.body.prepend(bgVidWrap);
+        // Sync all videos to main video for timing
+        if (mainVid) {
+          mainVid.addEventListener('play', () => {
+            allVids.forEach(v => {
+              if (v !== mainVid) {
+                v.currentTime = mainVid.currentTime;
+                if (v.paused) v.play();
+              }
+            });
+          });
+          mainVid.addEventListener('seeked', () => {
+            allVids.forEach(v => {
+              if (v !== mainVid) v.currentTime = mainVid.currentTime;
+            });
+          });
+          mainVid.addEventListener('timeupdate', () => {
+            allVids.forEach(v => {
+              if (v !== mainVid && Math.abs(v.currentTime - mainVid.currentTime) > 0.1) {
+                v.currentTime = mainVid.currentTime;
+              }
+            });
+          });
+        }
+        // Add volume slider UI (bottom right, only in this theme)
+        let volSlider = document.getElementById('video-volume-slider-wrap');
+        if (volSlider) volSlider.remove();
+        volSlider = document.createElement('div');
+        volSlider.id = 'video-volume-slider-wrap';
+        volSlider.style.position = 'fixed';
+        volSlider.style.right = '32px';
+        volSlider.style.bottom = '32px';
+        volSlider.style.zIndex = '20';
+        volSlider.style.background = volBg;
+        volSlider.style.borderRadius = '10px';
+        volSlider.style.padding = '10px 20px';
+        volSlider.style.boxShadow = '0 2px 12px #0002';
+        volSlider.style.display = 'flex';
+        volSlider.style.alignItems = 'center';
+        volSlider.style.gap = '12px';
+        volSlider.style.fontSize = '15px';
+        volSlider.innerHTML = `<span style="color:${mainColor};font-weight:bold;">Video Volume</span> <input id="video-volume-slider" type="range" min="0" max="1" step="0.01" value="1" style="width:120px;">`;
+        document.body.appendChild(volSlider);
+        // Volume control logic
+        const slider = document.getElementById('video-volume-slider');
+        if (mainVid) {
+          slider.addEventListener('input', function() {
+            mainVid.volume = parseFloat(this.value);
+          });
+          mainVid.volume = slider.value;
+        }
+      }
+      const style = `
+        body { background: ${t.bodyBg}; color: ${t.bodyColor}; font-family: 'Segoe UI', Arial, sans-serif; }
+        .container { max-width: 600px; margin: 40px auto; background: ${t.containerBg}; padding: 32px 24px 24px 24px; border-radius: 12px; box-shadow: 0 2px 16px #000a; position: relative; z-index: 2; }
+        h2 { color: ${t.accent}; text-align: center; margin-bottom: 24px; letter-spacing: 2px; }
+        #status { min-height: 24px; color: ${t.accent2}; text-align: center; margin-bottom: 12px; font-weight: bold; }
+        .step-cell { transition: background 0.1s, box-shadow 0.1s; background: ${t.gridBg}; border: 1.5px solid ${t.gridBorder}; }
+        .step-cell[style*='#ff9800'], .step-cell[style*='#ff9800'] { background: ${t.gridActive} !important; border-color: ${t.gridActiveBorder} !important; }
+        .step-cell.selected-beat { box-shadow: 0 0 8px 2px ${t.accent}; z-index: 1; }
+        .button-row { display: flex; justify-content: center; align-items: center; gap: 10px; margin: 10px 0 0 0; }
+        .main-btn, .util-btn { border: none; background: ${t.buttonBg}; color: ${t.buttonColor}; border-radius: 50%; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; font-size: 26px; box-shadow: 0 1px 4px #0001; transition: background 0.12s, color 0.12s, box-shadow 0.12s; cursor: pointer; }
+        .main-btn { background: ${t.buttonBg}; color: ${t.accent}; }
+        .util-btn { background: ${t.buttonBg}; color: ${t.buttonColor}; font-size: 22px; }
+        .main-btn:hover, .util-btn:hover { background: ${t.buttonHoverBg}; color: ${t.buttonHoverColor}; box-shadow: 0 2px 8px #0002; }
+        .main-btn:disabled, .util-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+        .material-symbols-rounded { font-family: 'Material Symbols Rounded'; font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 48; font-size: 26px; }
+        select, input[type='number'] { background: ${t.selectBg}; color: ${t.selectColor}; border: 1.5px solid ${t.selectBorder}; border-radius: 6px; font-size: 16px; padding: 4px 12px; }
+        label { color: ${t.labelColor}; font-weight: bold; }
+        ::selection { background: ${t.accent}; color: #fff; }
+        code { color: ${t.codeColor}; background: ${t.codeBg}; border-radius: 4px; padding: 2px 6px; }
+        .drum-label { color: ${t.labelColor}; background: ${t.containerBg}; border: 2px solid ${t.accent}; border-radius: 10px; padding: 2px 8px; }
+      `;
+      document.getElementById('theme-style').textContent = style;
+
+      // --- BIRTHDAY GIF SPAWNER ---
+      if (themeName === 'BIRTHDAY') {
+        if (window._birthdayGifInterval) clearInterval(window._birthdayGifInterval);
+        window._birthdayGifInterval = setInterval(() => {
+          const gif = document.createElement('img');
+          gif.src = 'cakespin.gif';
+          gif.style.position = 'fixed';
+          gif.style.zIndex = 9999;
+          gif.style.pointerEvents = 'none';
+          // Min size ~60px, max size ~16vw (about half a 3x3 video tile)
+          const minPx = 60;
+          const maxPx = Math.max(window.innerWidth, window.innerHeight) * 0.16;
+          const size = Math.floor(minPx + Math.random() * (maxPx - minPx));
+          gif.style.width = size + 'px';
+          gif.style.left = (Math.random() * 90).toFixed(1) + 'vw';
+          gif.style.top = (10 + Math.random() * 70).toFixed(1) + 'vh';
+          gif.style.transition = 'opacity 0.5s';
+          document.body.appendChild(gif);
+          setTimeout(() => { gif.style.opacity = 0; }, 2500);
+          setTimeout(() => { gif.remove(); }, 3000);
+        }, 750);
+      } else if (window._birthdayGifInterval) {
+        clearInterval(window._birthdayGifInterval);
+        window._birthdayGifInterval = null;
+      }
+    }
+
+    // --- Theme selector UI ---
+    function renderThemeSelector() {
+      const selector = document.getElementById('theme-selector');
+      selector.innerHTML = '';
+      const currentTheme = localStorage.getItem('daw-theme') || 'Black And Red';
+      const t = THEMES[currentTheme];
+      Object.keys(THEMES).forEach(theme => {
+        const btn = document.createElement('button');
+        btn.textContent = theme;
+        btn.style.padding = '6px 18px';
+        btn.style.fontSize = '15px';
+        btn.style.margin = '0 2px';
+        // Use each theme's accent/gridBorder/selectBg/buttonBg/buttonColor for its box
+        const themeObj = THEMES[theme];
+        btn.style.border = theme === currentTheme ? `2px solid ${t.accent}` : `1.5px solid ${themeObj.gridBorder}`;
+        btn.style.background = theme === currentTheme ? t.selectBg : (themeObj.selectBg || themeObj.buttonBg || themeObj.containerBg || '#fff');
+        btn.style.color = theme === currentTheme ? t.accent : (themeObj.accent || themeObj.buttonColor || themeObj.bodyColor);
+        btn.style.borderRadius = '7px';
+        btn.style.transition = 'border 0.12s, background 0.12s, color 0.12s';
+        btn.onmouseenter = () => {
+          btn.style.border = `2px solid ${themeObj.accent2 || themeObj.accent || themeObj.gridBorder}`;
+        };
+        btn.onmouseleave = () => {
+          btn.style.border = theme === currentTheme ? `2px solid ${t.accent}` : `1.5px solid ${themeObj.gridBorder}`;
+        };
+        btn.onclick = () => {
+          setTheme(theme);
+          localStorage.setItem('daw-theme', theme);
+          renderThemeSelector();
+        };
+        selector.appendChild(btn);
+      });
+      // Always update play button icon after theme change
+      setTimeout(() => {
+        const playBtn = document.getElementById('play-btn');
+        if (playBtn) {
+          const icon = playBtn.querySelector('.material-symbols-rounded');
+          if (icon) icon.textContent = isPlaying ? 'pause' : 'play_arrow';
+        }
+      }, 0);
+    }
+
+    // Set initial theme
+    const savedTheme = localStorage.getItem('daw-theme') || 'Black And Red';
+    setTheme(savedTheme);
+    window.addEventListener('DOMContentLoaded', renderThemeSelector);
+    // --- Mixer Tab Feature ---
+    let mixerTabCount = 0;
+    function createMixerTab() {
+      mixerTabCount++;
+      const theme = THEMES[localStorage.getItem('daw-theme') || 'Black And Red'];
+      const tab = document.createElement('div');
+      tab.className = 'mixer-tab';
+      tab.style.position = 'fixed';
+      tab.style.left = (80 + 40 * mixerTabCount) + 'px';
+      tab.style.top = (120 + 40 * mixerTabCount) + 'px';
+      tab.style.zIndex = 1000 + mixerTabCount;
+      tab.style.width = '720px';
+      tab.style.borderRadius = '14px';
+      tab.style.boxShadow = '0 4px 24px #0005';
+      tab.style.background = theme.containerBg;
+      tab.style.color = theme.bodyColor;
+      tab.style.border = '2.5px solid ' + theme.accent;
+      tab.style.transition = 'background 0.2s, color 0.2s, border 0.2s';
+      tab.style.userSelect = 'none';
+
+      // Header (drag handle)
+      const header = document.createElement('div');
+      header.textContent = 'Sequencer Tab';
+      header.style.cursor = 'move';
+      header.style.background = theme.accent;
+      header.style.color = theme.bodyBg;
+      header.style.fontWeight = 'bold';
+      header.style.fontSize = '17px';
+      header.style.padding = '10px 16px';
+      header.style.borderTopLeftRadius = '12px';
+      header.style.borderTopRightRadius = '12px';
+      header.style.letterSpacing = '1px';
+      header.style.display = 'flex';
+      header.style.justifyContent = 'space-between';
+      header.style.alignItems = 'center';
+
+      // Close button
+      const closeBtn = document.createElement('button');
+      closeBtn.innerHTML = '<span class="material-symbols-rounded">close</span>';
+      closeBtn.style.background = 'none';
+      closeBtn.style.border = 'none';
+      closeBtn.style.color = theme.bodyBg;
+      closeBtn.style.fontSize = '20px';
+      closeBtn.style.cursor = 'pointer';
+      closeBtn.style.marginLeft = '8px';
+      closeBtn.onclick = () => tab.remove();
+      header.appendChild(closeBtn);
+      tab.appendChild(header);
+
+      // --- Full Sequencer UI (minus title) ---
+      // Container for controls and grid
+      const seqContainer = document.createElement('div');
+      seqContainer.style.padding = '18px 18px 12px 18px';
+      tab.appendChild(seqContainer);
+
+      // Controls
+      const controls = document.createElement('div');
+      controls.style.display = 'flex';
+      controls.style.alignItems = 'center';
+      controls.style.gap = '18px';
+      controls.style.marginBottom = '16px';
+      controls.innerHTML = `
+        <button class="seq-play-btn" title="Play" style="border:none;background:${theme.buttonBg};color:${theme.accent};border-radius:50%;width:38px;height:38px;display:flex;align-items:center;justify-content:center;font-size:22px;cursor:pointer;"><span class="material-symbols-rounded">play_arrow</span></button>
+        <button class="seq-stop-btn" title="Stop" style="border:none;background:${theme.buttonBg};color:${theme.buttonColor};border-radius:50%;width:38px;height:38px;display:flex;align-items:center;justify-content:center;font-size:22px;cursor:pointer;"><span class="material-symbols-rounded">stop</span></button>
+        <button class="seq-clear-btn" title="Clear Pattern" style="border:none;background:${theme.buttonBg};color:${theme.buttonColor};border-radius:50%;width:38px;height:38px;display:flex;align-items:center;justify-content:center;font-size:22px;cursor:pointer;"><span class="material-symbols-rounded">delete</span></button>
+        <label style="margin-left:18px;">BPM: <input class="seq-bpm-input" type="number" min="40" max="300" value="120" style="width:54px;font-size:15px;padding:2px 6px;border-radius:6px;border:none;background:${theme.selectBg};color:${theme.selectColor};text-align:center;"></label>
+        <label style="margin-left:18px;">Bars: <input class="seq-bars-input" type="number" min="1" max="8" value="2" style="width:44px;font-size:15px;padding:2px 6px;border-radius:6px;border:none;background:${theme.selectBg};color:${theme.selectColor};text-align:center;"></label>
+      `;
+      seqContainer.appendChild(controls);
+
+      // --- Sequencer State ---
+      const DRUMS = [
+        { name: 'Kick', sample: 'samples/kick.wav' },
+        { name: 'Snare', sample: 'samples/snare.wav' },
+        { name: 'Hat', sample: 'samples/hihat.wav' },
+        { name: 'Clap', sample: 'samples/clap.wav' },
+      ];
+      let bars = 2;
+      let NUM_BEATS = 4 * bars;
+      let bpm = 120;
+      let sequencer = Array.from({length: DRUMS.length}, () => Array(NUM_BEATS).fill(false));
+      let isPlaying = false;
+      let playTimeout = null;
+      let playBeat = 0;
+      let audioCtx = null;
+      let drumBuffers = {};
+
+      // --- Sequencer Grid ---
+      const grid = document.createElement('div');
+      grid.style.display = 'flex';
+      grid.style.flexDirection = 'column';
+      grid.style.gap = '8px';
+      grid.style.marginBottom = '12px';
+      function renderGrid() {
+        grid.innerHTML = '';
+        for (let row = 0; row < DRUMS.length; row++) {
+          const rowDiv = document.createElement('div');
+          rowDiv.style.display = 'flex';
+          rowDiv.style.alignItems = 'center';
+          // Drum label
+          const label = document.createElement('span');
+          label.textContent = DRUMS[row].name;
+          label.style.display = 'inline-block';
+          label.style.width = '60px';
+          label.style.marginRight = '8px';
+          label.style.fontWeight = 'bold';
+          label.style.color = theme.accent;
+          rowDiv.appendChild(label);
+          for (let beat = 0; beat < NUM_BEATS; beat++) {
+            const cell = document.createElement('div');
+            cell.style.width = '32px';
+            cell.style.height = '24px';
+            cell.style.marginLeft = beat === 0 ? '0' : (beat % 4 === 0 ? '10px' : '3px');
+            cell.style.background = sequencer[row][beat] ? theme.gridActive : theme.gridBg;
+            cell.style.border = '1.5px solid ' + (sequencer[row][beat] ? theme.gridActiveBorder : theme.gridBorder);
+            cell.style.borderRadius = '4px';
+            cell.style.cursor = 'pointer';
+            cell.onclick = () => {
+              sequencer[row][beat] = !sequencer[row][beat];
+              renderGrid();
+            };
+            rowDiv.appendChild(cell);
+          }
+          grid.appendChild(rowDiv);
+        }
+      }
+      renderGrid();
+      seqContainer.appendChild(grid);
+
+      // --- Audio ---
+      async function loadDrumBuffers() {
+        if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        for (const drum of DRUMS) {
+          if (!drumBuffers[drum.name]) {
+            const resp = await fetch(drum.sample);
+            const arr = await resp.arrayBuffer();
+            drumBuffers[drum.name] = await audioCtx.decodeAudioData(arr);
+          }
+        }
+      }
+      function playDrum(row) {
+        if (!audioCtx) return;
+        const drum = DRUMS[row];
+        const buf = drumBuffers[drum.name];
+        if (!buf) return;
+        const src = audioCtx.createBufferSource();
+        src.buffer = buf;
+        src.connect(audioCtx.destination);
+        src.start();
+      }
+
+      // --- Sequencer Logic ---
+      function playStep(step) {
+        for (let row = 0; row < DRUMS.length; row++) {
+          if (sequencer[row][step]) playDrum(row);
+        }
+      }
+      function startPlayback() {
+        if (isPlaying) return;
+        isPlaying = true;
+        let step = 0;
+        let stepCount = NUM_BEATS;
+        let stepDuration = (60 / bpm) / 4;
+        playStep(step);
+        playBeat = step;
+        playTimeout = setInterval(() => {
+          step = (step + 1) % stepCount;
+          playStep(step);
+          playBeat = step;
+        }, stepDuration * 1000);
+      }
+      function stopPlayback() {
+        isPlaying = false;
+        if (playTimeout) clearInterval(playTimeout);
+        playTimeout = null;
+      }
+      function clearPattern() {
+        sequencer = Array.from({length: DRUMS.length}, () => Array(NUM_BEATS).fill(false));
+        renderGrid();
+        stopPlayback();
+      }
+
+      // --- Controls events ---
+      controls.querySelector('.seq-play-btn').onclick = async () => {
+        await loadDrumBuffers();
+        startPlayback();
+      };
+      controls.querySelector('.seq-stop-btn').onclick = stopPlayback;
+      controls.querySelector('.seq-clear-btn').onclick = clearPattern;
+      controls.querySelector('.seq-bpm-input').oninput = e => {
+        bpm = parseInt(e.target.value) || 120;
+        if (isPlaying) {
+          stopPlayback();
+          startPlayback();
+        }
+      };
+      controls.querySelector('.seq-bars-input').oninput = e => {
+        bars = Math.max(1, Math.min(8, parseInt(e.target.value) || 2));
+        NUM_BEATS = 4 * bars;
+        sequencer = sequencer.map(row => {
+          if (row.length < NUM_BEATS) {
+            return row.concat(Array(NUM_BEATS - row.length).fill(false));
+          } else {
+            return row.slice(0, NUM_BEATS);
+          }
+        });
+        renderGrid();
+        if (isPlaying) {
+          stopPlayback();
+          startPlayback();
+        }
+      };
+
+      // --- Theme update on theme change ---
+      tab._themeUpdate = function(newTheme) {
+        tab.style.background = newTheme.containerBg;
+        tab.style.color = newTheme.bodyColor;
+        tab.style.border = '2.5px solid ' + newTheme.accent;
+        header.style.background = newTheme.accent;
+        header.style.color = newTheme.bodyBg;
+        closeBtn.style.color = newTheme.bodyBg;
+        controls.querySelector('.seq-bpm-input').style.background = newTheme.selectBg;
+        controls.querySelector('.seq-bpm-input').style.color = newTheme.selectColor;
+        controls.querySelector('.seq-bars-input').style.background = newTheme.selectBg;
+        controls.querySelector('.seq-bars-input').style.color = newTheme.selectColor;
+        controls.querySelector('.seq-play-btn').style.background = newTheme.buttonBg;
+        controls.querySelector('.seq-play-btn').style.color = newTheme.accent;
+        controls.querySelector('.seq-stop-btn').style.background = newTheme.buttonBg;
+        controls.querySelector('.seq-stop-btn').style.color = newTheme.buttonColor;
+        controls.querySelector('.seq-clear-btn').style.background = newTheme.buttonBg;
+        controls.querySelector('.seq-clear-btn').style.color = newTheme.buttonColor;
+        renderGrid();
+      };
+
+      // --- Drag logic ---
+      let offsetX = 0, offsetY = 0, dragging = false;
+      header.onmousedown = function(e) {
+        dragging = true;
+        offsetX = e.clientX - tab.offsetLeft;
+        offsetY = e.clientY - tab.offsetTop;
+        document.body.style.userSelect = 'none';
+      };
+      document.addEventListener('mousemove', function moveHandler(e) {
+        if (dragging) {
+          tab.style.left = (e.clientX - offsetX) + 'px';
+          tab.style.top = (e.clientY - offsetY) + 'px';
+        }
+      });
+      document.addEventListener('mouseup', function upHandler() {
+        dragging = false;
+        document.body.style.userSelect = '';
+      });
+
+      document.body.appendChild(tab);
+    }
+
+    document.getElementById('add-mixer-tab-btn').addEventListener('click', createMixerTab);
+
+    // Update all mixer tabs on theme change
+    function updateMixerTabsTheme() {
+      const theme = THEMES[localStorage.getItem('daw-theme') || 'Black And Red'];
+      document.querySelectorAll('.mixer-tab').forEach(tab => {
+        if (typeof tab._themeUpdate === 'function') tab._themeUpdate(theme);
+      });
+    }
+    // Patch setTheme to also update mixer tabs
+    const origSetTheme = setTheme;
+    setTheme = function(themeName) {
+      origSetTheme(themeName);
+      setTimeout(updateMixerTabsTheme, 0);
+    };
+  </script>
+    <div id="theme-selector" style="position: absolute; left: 50%; transform: translateX(-50%); margin-top: 32px; z-index: 10; display: flex; gap: 12px; justify-content: center;"></div>
+  <script>
+    let bars = 1;
+    let NUM_BEATS = 4 * bars; // 4 beats per bar
+    let DRUMS = ['Kick', 'Snare', 'Hat', 'Clap'];
+    let bpm = 120;
+    let sequencer = Array.from({length: DRUMS.length}, () => Array(NUM_BEATS).fill(false));
+    let sequencerSounds = [];
+    let audioCtx = null;
+    let isPlaying = false;
+    let playBeat = 0;
+    let playTimeout = null;
+
+    function updateNumBeats(newBars) {
+      bars = newBars;
+      NUM_BEATS = 4 * bars;
+      // Resize sequencer arrays, preserving existing pattern if possible
+      for (let row = 0; row < DRUMS.length; row++) {
+        if (sequencer[row].length < NUM_BEATS) {
+          sequencer[row] = sequencer[row].concat(Array(NUM_BEATS - sequencer[row].length).fill(false));
+        } else if (sequencer[row].length > NUM_BEATS) {
+          sequencer[row] = sequencer[row].slice(0, NUM_BEATS);
+        }
+      }
+      renderSequencer();
+    }
+    // --- Add Drum Row Feature ---
+    document.getElementById('add-row-btn').addEventListener('click', function() {
+      if (DRUMS.length >= 8) {
+        alert('Maximum of 8 drum rows allowed.');
+        return;
+      }
+      const drumName = prompt('Enter a name for the new drum row:', 'New Sound');
+      if (!drumName) return;
+      DRUMS.push(drumName);
+      sequencer.push(Array(NUM_BEATS).fill(false));
+      if (window.customDrumNames) window.customDrumNames.push("");
+      if (window.drumMute) window.drumMute.push(false);
+      if (window.drumSolo) window.drumSolo.push(false);
+      renderSequencer();
+    });
+
+    function renderSequencer() {
+      const grid = document.getElementById('sequencer-grid');
+      grid.innerHTML = '';
+      // --- Beat numbers row ---
+      const beatRow = document.createElement('div');
+      beatRow.style.display = 'flex';
+      beatRow.style.alignItems = 'center';
+      beatRow.style.marginBottom = '6px';
+      // Empty space for drum label and play button
+      // Match drum label and play button width for alignment
+      // Use a flexbox container for label+button to match row layout
+      const labelPlayFlex = document.createElement('div');
+      labelPlayFlex.style.display = 'flex';
+      labelPlayFlex.style.alignItems = 'center';
+      labelPlayFlex.style.width = '142px'; // 90px label + 8px margin + 40px button + 4px gap
+      labelPlayFlex.style.minWidth = '142px';
+      labelPlayFlex.style.height = '28px';
+      beatRow.appendChild(labelPlayFlex);
+      for (let beat = 0; beat < NUM_BEATS; beat++) {
+        const beatLabel = document.createElement('div');
+        beatLabel.textContent = (beat + 1);
+        beatLabel.style.width = '40px';
+        beatLabel.style.height = '28px';
+        beatLabel.style.display = 'inline-flex';
+        beatLabel.style.alignItems = 'center';
+        beatLabel.style.justifyContent = 'center';
+        beatLabel.style.textAlign = 'center';
+        beatLabel.style.color = '#aaa';
+        beatLabel.style.fontSize = '12px';
+        // Margin logic for bar separation
+        if (beat % 4 === 0 && beat !== 0) beatLabel.style.marginLeft = '12px';
+        else if (beat !== 0) beatLabel.style.marginLeft = '4px';
+        else beatLabel.style.marginLeft = '0px';
+        beatRow.appendChild(beatLabel);
+      }
+      grid.appendChild(beatRow);
+
+      // --- Drum rows ---
+      // --- Mute/Solo state ---
+      if (!window.drumMute) window.drumMute = Array(DRUMS.length).fill(false);
+      if (!window.drumSolo) window.drumSolo = Array(DRUMS.length).fill(false);
+      for (let row = 0; row < DRUMS.length; row++) {
+        const rowDiv = document.createElement('div');
+        rowDiv.style.display = 'flex';
+        rowDiv.style.alignItems = 'center';
+        rowDiv.style.marginBottom = '8px';
+        // Drum label with drag-and-drop for custom sample
+        const label = document.createElement('span');
+        label.textContent = (window.customDrumNames && window.customDrumNames[row]) ? window.customDrumNames[row] : DRUMS[row];
+        label.title = label.textContent;
+        label.className = 'drum-label';
+        label.style.width = '90px';
+        label.style.maxWidth = '90px';
+        label.style.overflow = 'hidden';
+        label.style.textOverflow = 'ellipsis';
+        label.style.whiteSpace = 'nowrap';
+        label.style.display = 'inline-block';
+        label.style.marginRight = '4px';
+        label.style.cursor = 'pointer';
+        label.style.borderRadius = '10px';
+        label.style.padding = '2px 8px';
+        // Drag-and-drop events for custom sample
+        label.ondragover = (e) => { e.preventDefault(); label.style.background = '#2a2a2a'; };
+        label.ondragleave = (e) => { label.style.background = '#181818'; };
+        label.ondrop = async (e) => {
+          e.preventDefault();
+          label.style.background = '#181818';
+          const file = e.dataTransfer.files && e.dataTransfer.files[0];
+          if (!file) return;
+          if (!file.type.startsWith('audio/')) {
+            document.getElementById('status').textContent = 'Only audio files are supported.';
+            return;
+          }
+          try {
+            const arr = await file.arrayBuffer();
+            if (!window.audioCtx) window.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            window.audioCtx.decodeAudioData(arr, (buf) => {
+              sequencerSounds[row] = buf;
+              if (!window.customDrumNames) window.customDrumNames = Array(DRUMS.length).fill("");
+              let shortName = file.name;
+              if (shortName.length > 16) shortName = shortName.slice(0, 13) + '...';
+              window.customDrumNames[row] = shortName;
+              renderSequencer();
+              document.getElementById('status').textContent = 'Loaded custom sound: ' + file.name;
+            }, (err) => {
+              document.getElementById('status').textContent = 'Failed to decode audio file.';
+            });
+          } catch {
+            document.getElementById('status').textContent = 'Failed to load audio file.';
+          }
+        };
+        // Delete row button (not for first 4 rows)
+        if (DRUMS.length > 4) {
+          const delBtn = document.createElement('button');
+          delBtn.title = 'Delete this drum row';
+          delBtn.innerHTML = '<span class="material-symbols-rounded" style="font-size:20px;color:#f44;">delete</span>';
+          delBtn.style.background = 'none';
+          delBtn.style.border = 'none';
+          delBtn.style.marginLeft = '4px';
+          delBtn.style.cursor = 'pointer';
+          delBtn.onclick = function() {
+            if (!confirm('Delete this drum row?')) return;
+            DRUMS.splice(row, 1);
+            sequencer.splice(row, 1);
+            if (window.customDrumNames) window.customDrumNames.splice(row, 1);
+            if (window.drumMute) window.drumMute.splice(row, 1);
+            if (window.drumSolo) window.drumSolo.splice(row, 1);
+            if (window.sequencerSounds) window.sequencerSounds.splice(row, 1);
+            renderSequencer();
+          };
+          rowDiv.appendChild(delBtn);
+        }
+        rowDiv.appendChild(label);
+        // Mute button
+        const muteBtn = document.createElement('button');
+        muteBtn.title = window.drumMute[row] ? 'Unmute' : 'Mute';
+        muteBtn.innerHTML = `<span class="material-symbols-rounded">${window.drumMute[row] ? 'volume_up' : 'volume_off'}</span>`;
+        muteBtn.style.marginRight = '2px';
+        muteBtn.style.width = '28px';
+        muteBtn.style.height = '28px';
+        muteBtn.style.borderRadius = '50%';
+        muteBtn.style.border = 'none';
+        muteBtn.style.background = window.drumMute[row] ? '#eee' : '#222';
+        muteBtn.style.color = window.drumMute[row] ? '#f44' : '#888';
+        muteBtn.style.cursor = 'pointer';
+        muteBtn.onclick = () => {
+          window.drumMute[row] = !window.drumMute[row];
+          // If muting, also clear solo for this row
+          if (window.drumMute[row]) window.drumSolo[row] = false;
+          renderSequencer();
+        };
+        rowDiv.appendChild(muteBtn);
+        // Solo button
+        const soloBtn = document.createElement('button');
+        soloBtn.title = window.drumSolo[row] ? 'Unsolo' : 'Solo';
+        soloBtn.innerHTML = `<span class="material-symbols-rounded">hearing</span>`;
+        soloBtn.style.marginRight = '2px';
+        soloBtn.style.width = '28px';
+        soloBtn.style.height = '28px';
+        soloBtn.style.borderRadius = '50%';
+        soloBtn.style.border = 'none';
+        soloBtn.style.background = window.drumSolo[row] ? '#ffe600' : '#222';
+        soloBtn.style.color = window.drumSolo[row] ? '#222' : '#888';
+        soloBtn.style.cursor = 'pointer';
+        soloBtn.onclick = () => {
+          // Only one solo at a time (classic behavior)
+          if (!window.drumSolo[row]) {
+            window.drumSolo = Array(NUM_ROWS).fill(false);
+            window.drumSolo[row] = true;
+            // Unmute all
+            window.drumMute = Array(NUM_ROWS).fill(false);
+          } else {
+            window.drumSolo[row] = false;
+          }
+          renderSequencer();
+        };
+        rowDiv.appendChild(soloBtn);
+        // Audition button
+        const playBtn = document.createElement('button');
+        playBtn.textContent = 'Play';
+        playBtn.title = 'Play this sound';
+        playBtn.style.marginRight = '8px';
+        playBtn.style.background = '';
+        playBtn.style.color = '';
+        playBtn.style.border = '';
+        playBtn.style.borderRadius = '';
+        playBtn.style.width = '40px';
+        playBtn.style.height = '28px';
+        playBtn.onclick = () => {
+          if (sequencerSounds[row] && audioCtx) {
+            const src = audioCtx.createBufferSource();
+            src.buffer = sequencerSounds[row];
+            src.connect(audioCtx.destination);
+            src.start();
+          }
+        };
+        playBtn.disabled = !sequencerSounds[row];
+        rowDiv.appendChild(playBtn);
+        // Beat cells
+        for (let beat = 0; beat < NUM_BEATS; beat++) {
+          const cell = document.createElement('div');
+          cell.className = 'step-cell';
+          cell.style.width = '40px';
+          cell.style.height = '28px';
+          cell.style.display = 'inline-flex';
+          cell.style.alignItems = 'center';
+          cell.style.justifyContent = 'center';
+          // Use theme colors for background and border
+          const theme = THEMES[localStorage.getItem('daw-theme') || 'Black And Red'];
+          if (sequencer[row][beat]) {
+            cell.style.background = theme.gridActive;
+            cell.style.border = '1.5px solid ' + theme.gridActiveBorder;
+          } else {
+            cell.style.background = theme.gridBg;
+            cell.style.border = '1.5px solid ' + theme.gridBorder;
+          }
+          cell.style.borderRadius = '4px';
+          cell.style.cursor = 'pointer';
+          // Margin logic for bar separation
+          if (beat % 4 === 0 && beat !== 0) cell.style.marginLeft = '12px';
+          else if (beat !== 0) cell.style.marginLeft = '4px';
+          else cell.style.marginLeft = '0px';
+          cell.onclick = () => {
+            sequencer[row][beat] = !sequencer[row][beat];
+            renderSequencer();
+          };
+          rowDiv.appendChild(cell);
+        }
+        grid.appendChild(rowDiv);
+      }
+    }
+
+    async function setupAudio() {
+      if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      const drumUrls = [
+        'samples/kick.wav',
+        'samples/snare.wav',
+        'samples/hihat.wav',
+        'samples/clap.wav',
+      ];
+      let loadErrors = [];
+      sequencerSounds = await Promise.all(drumUrls.map(async (url, idx) => {
+        try {
+          const resp = await fetch(url + '?cacheBust=' + Date.now());
+          if (!resp.ok) throw new Error('HTTP ' + resp.status);
+          const arr = await resp.arrayBuffer();
+          if (!arr || arr.byteLength < 1000) throw new Error('File too small or empty');
+          return await new Promise((resolve, reject) => {
+            audioCtx.decodeAudioData(arr, resolve, err => reject(err || new Error('decodeAudioData failed')));
+          });
+        } catch (e) {
+          loadErrors.push({url, idx, error: e});
+          return null;
+        }
+      }));
+      const status = document.getElementById('status');
+      if (loadErrors.length > 0 && status) {
+        let msg = 'Some drum samples failed to load! (' + loadErrors.map(e => e.url.split('/').pop() + ': ' + (e.error && e.error.message ? e.error.message : e.error)).join(', ') + ')';
+        status.textContent = msg;
+      } else if (status) {
+        status.textContent = '';
+      }
+      renderSequencer();
+    }
+
+    function playSequence() {
+      isPlaying = true;
+      const playBtn = document.getElementById('play-btn');
+      if (playBtn) {
+        const icon = playBtn.querySelector('.material-symbols-rounded');
+        if (icon) icon.textContent = 'pause';
+      }
+
+      // --- New: Use AudioContext time for audio, requestAnimationFrame for highlight ---
+      let scheduledBeat = 0;
+      let stopped = false;
+      let lastDrawnBeat = -1;
+      let beatDuration = 60 / bpm;
+      // Align start time to current audio context time
+      let startTime = (audioCtx ? audioCtx.currentTime : 0) + 0.05;
+      let nextBeatTime = startTime;
+
+      // Only schedule audio, no playback glow/highlight
+      function scheduleAudio() {
+        if (!isPlaying || stopped) return;
+        let now = audioCtx ? audioCtx.currentTime : 0;
+        // Schedule all beats within 150ms window
+        while (nextBeatTime < now + 0.15) {
+          let soloActive = window.drumSolo && window.drumSolo.some(s => s);
+          for (let row = 0; row < NUM_ROWS; row++) {
+            let muted = (window.drumMute && window.drumMute[row]) || (soloActive && !window.drumSolo[row]);
+            if (!muted && sequencer[row][scheduledBeat] && sequencerSounds[row] && audioCtx) {
+              const src = audioCtx.createBufferSource();
+              src.buffer = sequencerSounds[row];
+              src.connect(audioCtx.destination);
+              src.start(nextBeatTime);
+            }
+          }
+          scheduledBeat++;
+          nextBeatTime += beatDuration;
+          if (scheduledBeat >= NUM_BEATS) {
+            scheduledBeat = 0;
+            startTime += beatDuration * NUM_BEATS;
+            nextBeatTime = startTime;
+          }
+        }
+        playTimeout = setTimeout(scheduleAudio, 20);
+      }
+      scheduleAudio();
+// --- Pattern Copy/Paste (right-click grid, attach ONCE globally) ---
+document.addEventListener('DOMContentLoaded', () => {
+  const grid = document.getElementById('sequencer-grid');
+  if (!grid) return;
+  grid.addEventListener('contextmenu', async (e) => {
+    e.preventDefault();
+    // Show a simple menu: Copy or Paste
+    const menu = document.createElement('div');
+    menu.style.position = 'fixed';
+    menu.style.left = e.clientX + 'px';
+    menu.style.top = e.clientY + 'px';
+    menu.style.background = '#222';
+    menu.style.color = '#ffe600';
+    menu.style.padding = '10px 18px';
+    menu.style.borderRadius = '8px';
+    menu.style.boxShadow = '0 2px 12px #0006';
+    menu.style.zIndex = 9999;
+    menu.style.fontSize = '15px';
+    menu.style.cursor = 'pointer';
+    menu.style.userSelect = 'none';
+    menu.innerHTML = '<div id="copy-pattern" style="margin-bottom:8px;">Copy Pattern</div><div id="paste-pattern">Paste Pattern</div>';
+    document.body.appendChild(menu);
+    const removeMenu = () => { if (menu.parentNode) menu.parentNode.removeChild(menu); };
+    setTimeout(() => document.addEventListener('click', removeMenu, { once: true }), 10);
+    document.getElementById('copy-pattern').onclick = async () => {
+      const pattern = {
+        bars,
+        bpm,
+        sequencer,
+        customDrumNames: window.customDrumNames || null
+      };
+      await navigator.clipboard.writeText(JSON.stringify(pattern));
+      document.getElementById('status').textContent = 'Pattern copied to clipboard!';
+      removeMenu();
+    };
+    document.getElementById('paste-pattern').onclick = async () => {
+      try {
+        const text = await navigator.clipboard.readText();
+        const pattern = JSON.parse(text);
+        if (pattern.bars && pattern.sequencer && pattern.sequencer.length === 4) {
+          bars = pattern.bars;
+          bpm = pattern.bpm || 120;
+          sequencer = pattern.sequencer;
+          window.customDrumNames = pattern.customDrumNames || null;
+          document.getElementById('bar-count').value = bars;
+          document.getElementById('bpm-input').value = bpm;
+          renderSequencer();
+          document.getElementById('status').textContent = 'Pattern pasted!';
+        } else {
+          document.getElementById('status').textContent = 'Clipboard does not contain a valid pattern.';
+        }
+      } catch {
+        document.getElementById('status').textContent = 'Failed to paste pattern.';
+      }
+      removeMenu();
+    };
+  });
+});
+    }
+
+    function stopSequence() {
+      isPlaying = false;
+      // Change play button icon back to play
+      const playBtn = document.getElementById('play-btn');
+      if (playBtn) {
+        const icon = playBtn.querySelector('.material-symbols-rounded');
+        if (icon) icon.textContent = 'play_arrow';
+      }
+      if (playTimeout) clearTimeout(playTimeout);
+      // Signal to stop highlight scheduling
+      if (typeof stopped !== 'undefined') stopped = true;
+      // No highlight to remove
+    }
+
+    // --- Minimal AudioBuffer to WAV (mono, 16-bit) ---
+    function audioBufferToWav(buffer) {
+      const numChannels = buffer.numberOfChannels;
+      const sampleRate = buffer.sampleRate;
+      const length = buffer.length * numChannels * 2;
+      const wav = new Uint8Array(44 + length);
+      const view = new DataView(wav.buffer);
+      function writeString(offset, str) {
+        for (let i = 0; i < str.length; i++) view.setUint8(offset + i, str.charCodeAt(i));
+      }
+      writeString(0, 'RIFF');
+      view.setUint32(4, 36 + length, true);
+      writeString(8, 'WAVE');
+      writeString(12, 'fmt ');
+      view.setUint32(16, 16, true); // PCM chunk size
+      view.setUint16(20, 1, true); // PCM format
+      view.setUint16(22, numChannels, true);
+      view.setUint32(24, sampleRate, true);
+      view.setUint32(28, sampleRate * numChannels * 2, true);
+      view.setUint16(32, numChannels * 2, true);
+      view.setUint16(34, 16, true); // bits per sample
+      writeString(36, 'data');
+      view.setUint32(40, length, true);
+      // Interleave and convert
+      let offset = 44;
+      for (let i = 0; i < buffer.length; i++) {
+        for (let ch = 0; ch < numChannels; ch++) {
+          let sample = buffer.getChannelData(ch)[i];
+          sample = Math.max(-1, Math.min(1, sample));
+          view.setInt16(offset, sample < 0 ? sample * 0x8000 : sample * 0x7FFF, true);
+          offset += 2;
+        }
+      }
+      return wav;
+    }
+
+    async function exportMix() {
+      const status = document.getElementById('status');
+      try {
+        // Resume audio context if suspended (browser gesture requirement)
+        if (audioCtx && audioCtx.state === 'suspended') {
+          await audioCtx.resume();
+        }
+        if (!sequencerSounds.length || sequencerSounds.some(s => !s)) {
+          if (status) status.textContent = 'Cannot export: One or more drum samples failed to load.';
+          return;
+        }
+        // Find last beat with any hit
+        let lastBeat = -1;
+        for (let beat = NUM_BEATS-1; beat >= 0; beat--) {
+          for (let row = 0; row < NUM_ROWS; row++) {
+            if (sequencer[row][beat]) { lastBeat = Math.max(lastBeat, beat); }
+          }
+        }
+        let duration;
+        if (lastBeat === -1) {
+          // No beats active: export short silence
+          duration = 0.5; // half a second
+        } else {
+          duration = ((lastBeat+1) * (60/bpm));
+        }
+        const sampleRate = 44100;
+        const offlineCtx = new OfflineAudioContext(1, Math.ceil(sampleRate * duration), sampleRate);
+        // Helper to resample buffer if needed
+        async function ensureSampleRate(buf, targetRate) {
+          if (buf.sampleRate === targetRate) return buf;
+          const tmpCtx = new OfflineAudioContext(buf.numberOfChannels, Math.ceil(buf.length * targetRate / buf.sampleRate), targetRate);
+          const src = tmpCtx.createBufferSource();
+          src.buffer = buf;
+          src.connect(tmpCtx.destination);
+          src.start();
+          return await tmpCtx.startRendering();
+        }
+        if (lastBeat !== -1) {
+          for (let beat = 0; beat <= lastBeat; beat++) {
+            const time = beat * (60/bpm);
+            for (let row = 0; row < NUM_ROWS; row++) {
+              if (sequencer[row][beat] && sequencerSounds[row]) {
+                const src = offlineCtx.createBufferSource();
+                // Downmix to mono if needed
+                let buf = sequencerSounds[row];
+                if (buf.numberOfChannels > 1) {
+                  let mono = offlineCtx.createBuffer(1, buf.length, buf.sampleRate);
+                  const ch0 = buf.getChannelData(0);
+                  const ch1 = buf.getChannelData(1);
+                  const monoData = mono.getChannelData(0);
+                  for (let i = 0; i < buf.length; i++) {
+                    monoData[i] = (ch0[i] + ch1[i]) * 0.5;
+                  }
+                  buf = mono;
+                }
+                // Resample if needed
+                buf = await ensureSampleRate(buf, sampleRate);
+                src.buffer = buf;
+                src.connect(offlineCtx.destination);
+                src.start(time);
+              }
+            }
+          }
+        }
+        const rendered = await offlineCtx.startRendering();
+        const wav = audioBufferToWav(rendered);
+        const blob = new Blob([wav], {type:'audio/wav'});
+        // Use a direct user gesture to trigger download
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'drum-sequence.wav';
+        document.body.appendChild(a);
+        a.click();
+        setTimeout(() => {
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+        }, 100);
+        if (status) status.textContent = lastBeat === -1 ? 'Exported silence (no beats active).' : 'Exported drum sequence as WAV.';
+      } catch (e) {
+        if (status) status.textContent = 'Export failed: ' + e.message;
+        console.error('Export error:', e);
+      }
+    }
+
+    document.getElementById('bar-count').addEventListener('change', (e) => {
+      updateNumBeats(parseInt(e.target.value));
+    });
+    document.getElementById('bpm-input').addEventListener('change', (e) => {
+      let val = parseInt(e.target.value);
+      if (isNaN(val) || val < 40) val = 40;
+      if (val > 300) val = 300;
+      bpm = val;
+      e.target.value = val;
+    });
+    document.getElementById('play-btn').addEventListener('click', () => {
+      if (isPlaying) {
+        stopSequence();
+      } else {
+        playSequence();
+      }
+    });
+    document.getElementById('stop-btn').addEventListener('click', stopSequence);
+    document.getElementById('export-btn').addEventListener('click', exportMix);
+    document.getElementById('clear-btn').addEventListener('click', () => {
+      for (let row = 0; row < NUM_ROWS; row++) {
+        for (let beat = 0; beat < NUM_BEATS; beat++) {
+          sequencer[row][beat] = false;
+        }
+      }
+      renderSequencer();
+      stopSequence();
+      document.getElementById('status').textContent = 'Sequencer cleared.';
+    });
+    setupAudio();
+
+    // --- Pattern Save/Load ---
+    document.getElementById('save-pattern-btn').addEventListener('click', () => {
+      const pattern = {
+        bars,
+        bpm,
+        sequencer,
+        customDrumNames: window.customDrumNames || null
+      };
+      const blob = new Blob([JSON.stringify(pattern)], {type:'application/json'});
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'drum-pattern.json';
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(() => {
+        document.body.removeChild(a);
+        URL.revokeObjectURL(a.href);
+      }, 100);
+    });
+
+    document.getElementById('load-pattern-btn').addEventListener('click', () => {
+      document.getElementById('pattern-file-input').click();
+    });
+
+    document.getElementById('pattern-file-input').addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = function(evt) {
+        try {
+          const pattern = JSON.parse(evt.target.result);
+          if (pattern.bars && pattern.sequencer && pattern.sequencer.length === 4) {
+            bars = pattern.bars;
+            bpm = pattern.bpm || 120;
+            sequencer = pattern.sequencer;
+            window.customDrumNames = pattern.customDrumNames || null;
+            document.getElementById('bar-count').value = bars;
+            document.getElementById('bpm-input').value = bpm;
+            renderSequencer();
+            document.getElementById('status').textContent = 'Pattern loaded!';
+          } else {
+            document.getElementById('status').textContent = 'Invalid pattern file.';
+          }
+        } catch {
+          document.getElementById('status').textContent = 'Failed to load pattern file.';
+        }
+      };
+      reader.readAsText(file);
+      e.target.value = '';
+    });
+
+    // --- MIDI Export ---
+    document.getElementById('export-midi-btn').addEventListener('click', () => {
+      // GM drum notes: Kick=36, Snare=38, Hat=42, Clap=39
+      const drumMidi = [36, 38, 42, 39];
+      const ticksPerBeat = 96;
+      const midi = [];
+      // Header chunk
+      midi.push(...[0x4d,0x54,0x68,0x64, 0x00,0x00,0x00,0x06, 0x00,0x00, 0x00,0x01, (ticksPerBeat>>8)&0xff, ticksPerBeat&0xff]);
+      // Track chunk start
+      let track = [0x00, 0xFF, 0x51, 0x03, ...[
+        Math.floor(60000000/bpm/65536)&0xff,
+        Math.floor(60000000/bpm/256)&0xff,
+        Math.floor(60000000/bpm)&0xff
+      ]];
+      for (let beat = 0; beat < NUM_BEATS; beat++) {
+        for (let row = 0; row < NUM_ROWS; row++) {
+          if (sequencer[row][beat]) {
+            // Note on
+            track.push(0x00, 0x99, drumMidi[row], 100);
+            // Note off after 1/2 beat
+            track.push(0x30, 0x89, drumMidi[row], 0);
+          }
+        }
+      }
+      // End of track
+      track.push(0x00, 0xFF, 0x2F, 0x00);
+      // Track chunk header
+      const trackLen = track.length;
+      midi.push(...[0x4d,0x54,0x72,0x6b, (trackLen>>24)&0xff, (trackLen>>16)&0xff, (trackLen>>8)&0xff, trackLen&0xff]);
+      midi.push(...track);
+      // Download
+      const blob = new Blob([new Uint8Array(midi)], {type:'audio/midi'});
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'drum-sequence.mid';
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(() => {
+        document.body.removeChild(a);
+        URL.revokeObjectURL(a.href);
+      }, 100);
+    });
+  </script>
+</body>
+</html>
